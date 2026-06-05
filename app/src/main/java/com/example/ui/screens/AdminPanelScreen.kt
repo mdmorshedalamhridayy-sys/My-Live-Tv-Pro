@@ -25,6 +25,8 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import com.example.data.ChannelEntity
 import com.example.data.NotificationEntity
 import com.example.data.UserEntity
@@ -39,7 +41,7 @@ import com.example.ui.viewmodel.StreamingViewModel
 @Composable
 fun AdminPanelScreen(streamingViewModel: StreamingViewModel) {
     val adminViewModel: AdminViewModel = viewModel()
-    var activeAdminTab by remember { mutableStateOf("dashboard") } // dashboard, channel_crud, video_crud, users, alerts, updates, gateways
+    var activeAdminTab by remember { mutableStateOf("dashboard") } // dashboard, channel_crud, video_crud, users, alerts, updates, gateways, payments
 
     Column(modifier = Modifier.fillMaxSize()) {
         // Tab Navigation Headers
@@ -52,6 +54,7 @@ fun AdminPanelScreen(streamingViewModel: StreamingViewModel) {
                 "alerts" -> 4
                 "updates" -> 5
                 "gateways" -> 6
+                "payments" -> 7
                 else -> 0
             },
             containerColor = DeepBackground,
@@ -91,7 +94,12 @@ fun AdminPanelScreen(streamingViewModel: StreamingViewModel) {
             Tab(
                 selected = (activeAdminTab == "gateways"),
                 onClick = { activeAdminTab = "gateways" },
-                text = { Text("Gateways", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = AccentGold) }
+                text = { Text("Gateways", fontSize = 11.sp, fontWeight = FontWeight.Bold) }
+            )
+            Tab(
+                selected = (activeAdminTab == "payments"),
+                onClick = { activeAdminTab = "payments" },
+                text = { Text("Payments Status", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = AccentGold) }
             )
         }
 
@@ -110,6 +118,7 @@ fun AdminPanelScreen(streamingViewModel: StreamingViewModel) {
                 "alerts" -> PushAlertsTab(adminViewModel)
                 "updates" -> UpdatesManagementTab(streamingViewModel)
                 "gateways" -> GatewayManagementTab(streamingViewModel)
+                "payments" -> PaymentRequestsTab(streamingViewModel)
             }
         }
     }
@@ -1141,3 +1150,208 @@ fun GatewayManagementTab(viewModel: StreamingViewModel) {
 // Helper function to create borders dynamically 
 @Composable
 fun borderStroke(width: androidx.compose.ui.unit.Dp, color: Color) = androidx.compose.foundation.BorderStroke(width, color)
+
+@Composable
+fun PaymentRequestsTab(viewModel: StreamingViewModel) {
+    val requests by viewModel.allPaymentRequests.collectAsState()
+    var selectedFilter by remember { mutableStateOf("Pending") } // Pending, Approved, Rejected, All
+    val dateFormat = remember { java.text.SimpleDateFormat("dd MMM yyyy, hh:mm a", java.util.Locale.getDefault()) }
+
+    val filteredList = when (selectedFilter) {
+        "All" -> requests
+        else -> requests.filter { it.status.equals(selectedFilter, ignoreCase = true) }
+    }
+
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(16.dp)
+    ) {
+        Text(
+            text = "SUBSCRIPTION VERIFICATION PANEL",
+            fontSize = 18.sp,
+            fontWeight = FontWeight.Bold,
+            color = AccentGold,
+            modifier = Modifier.padding(bottom = 12.dp)
+        )
+
+        // Filter Header tabs
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(bottom = 16.dp),
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            listOf("Pending", "Approved", "Rejected", "All").forEach { filter ->
+                val isSelected = selectedFilter == filter
+                val count = when (filter) {
+                    "All" -> requests.size
+                    else -> requests.count { it.status.equals(filter, ignoreCase = true) }
+                }
+                
+                Button(
+                    onClick = { selectedFilter = filter },
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = if (isSelected) PrimaryRed else SurfaceCard,
+                        contentColor = if (isSelected) Color.White else Color.Gray
+                    ),
+                    modifier = Modifier.weight(1f),
+                    contentPadding = PaddingValues(horizontal = 4.dp, vertical = 8.dp),
+                    shape = MaterialTheme.shapes.small
+                ) {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Text(text = filter, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                        Text(text = "($count)", fontSize = 9.sp, color = if (isSelected) Color.White else Color.DarkGray)
+                    }
+                }
+            }
+        }
+
+        if (filteredList.isEmpty()) {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .weight(1f),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    text = "No subscription requests found for: $selectedFilter",
+                    fontSize = 13.sp,
+                    color = Color.Gray
+                )
+            }
+        } else {
+            LazyColumn(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .weight(1f),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                items(filteredList) { req ->
+                    val borderHighlight = when (req.status) {
+                        "Approved" -> Color(0xFF00FFCC)
+                        "Rejected" -> Color.Red
+                        else -> Color(0xFFFFCC00)
+                    }
+
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = CardDefaults.cardColors(containerColor = SurfaceCard),
+                        border = borderStroke(1.dp, borderHighlight.copy(alpha = 0.5f))
+                    ) {
+                        Column(modifier = Modifier.padding(16.dp)) {
+                            // Row 1: User info & Status Badge
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Column {
+                                    Text(
+                                        text = req.userName,
+                                        fontSize = 15.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = Color.White
+                                    )
+                                    Text(
+                                        text = req.userEmail,
+                                        fontSize = 11.sp,
+                                        color = Color.Gray
+                                    )
+                                }
+                                
+                                Box(
+                                    modifier = Modifier
+                                        .background(borderHighlight, shape = MaterialTheme.shapes.extraSmall)
+                                        .padding(horizontal = 8.dp, vertical = 4.dp)
+                                ) {
+                                    Text(
+                                        text = req.status.uppercase(),
+                                        fontSize = 10.sp,
+                                        color = if (req.status == "Rejected") Color.White else Color.Black,
+                                        fontWeight = FontWeight.Black
+                                    )
+                                }
+                            }
+
+                            Spacer(modifier = Modifier.height(12.dp))
+                            Divider(color = Color.DarkGray.copy(alpha = 0.4f))
+                            Spacer(modifier = Modifier.height(12.dp))
+
+                            // Row 2: Plan and details
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween
+                            ) {
+                                Column {
+                                    Text("Plan Requested:", fontSize = 11.sp, color = Color.Gray)
+                                    Text(req.planName, color = AccentGold, fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                                    Text("Validity: ${if (req.validityDays == -1) "Lifetime" else "${req.validityDays} Days"}", fontSize = 11.sp, color = Color.LightGray)
+                                    Text("Price: ${req.price} Tk", fontSize = 11.sp, color = Color.LightGray)
+                                }
+                                
+                                Column(horizontalAlignment = Alignment.End) {
+                                    Text("Receipt Details:", fontSize = 11.sp, color = Color.Gray)
+                                    Text(
+                                        text = "${req.provider} - Send Money",
+                                        fontWeight = FontWeight.Bold,
+                                        fontSize = 12.sp,
+                                        color = when (req.provider) {
+                                            "bKash" -> Color(0xFFE2136E)
+                                            "Nagad" -> Color(0xFFF37021)
+                                            "Rocket" -> Color(0xFF8C2D8C)
+                                            else -> Color.White
+                                        }
+                                    )
+                                    Text("Sender: ${req.senderNumber}", fontSize = 12.sp, color = Color.White, fontWeight = FontWeight.Bold)
+                                    Row {
+                                        Text("TrxID: ", fontSize = 11.sp, color = Color.Gray)
+                                        Text(req.transactionId, fontSize = 12.sp, color = Color.White, fontWeight = FontWeight.Black)
+                                    }
+                                }
+                            }
+
+                            Spacer(modifier = Modifier.height(8.dp))
+                            
+                            Text(
+                                text = "Requested: ${dateFormat.format(java.util.Date(req.timestamp))}",
+                                fontSize = 10.sp,
+                                color = Color.Gray
+                            )
+
+                            // Admin decision action buttons (for Pending requests)
+                            if (req.status.equals("Pending", ignoreCase = true)) {
+                                Spacer(modifier = Modifier.height(16.dp))
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                ) {
+                                    Button(
+                                        onClick = { viewModel.rejectPaymentRequest(req.id) },
+                                        colors = ButtonDefaults.buttonColors(containerColor = Color.Red.copy(alpha = 0.8f)),
+                                        modifier = Modifier.weight(1f),
+                                        shape = MaterialTheme.shapes.small,
+                                        contentPadding = PaddingValues(vertical = 10.dp)
+                                    ) {
+                                        Text("REJECT PAYMENT", color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                                    }
+
+                                    Button(
+                                        onClick = { viewModel.approvePaymentRequest(req.id) },
+                                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF00FFCC)),
+                                        modifier = Modifier.weight(1.3f),
+                                        shape = MaterialTheme.shapes.small,
+                                        contentPadding = PaddingValues(vertical = 10.dp)
+                                    ) {
+                                        Text("APPROVE & ACTIVATE", color = Color.Black, fontSize = 11.sp, fontWeight = FontWeight.Black)
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+

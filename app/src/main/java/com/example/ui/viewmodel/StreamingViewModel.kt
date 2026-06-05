@@ -368,6 +368,16 @@ class StreamingViewModel(application: Application) : AndroidViewModel(applicatio
     val gatewayNumbers: StateFlow<List<GatewayNumberEntity>> = repository.gatewayNumbersFlow
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
+    val allPaymentRequests: StateFlow<List<PaymentRequestEntity>> = repository.allPaymentRequestsFlow
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    val myPaymentRequests: StateFlow<List<PaymentRequestEntity>> = repository.allPaymentRequestsFlow
+        .map { list ->
+            val curId = _currentUser.value?.id ?: -1L
+            list.filter { it.userId == curId }
+        }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
     fun refreshCurrentUser() {
         val user = _currentUser.value ?: return
         viewModelScope.launch {
@@ -375,6 +385,42 @@ class StreamingViewModel(application: Application) : AndroidViewModel(applicatio
             if (updatedUser != null) {
                 _currentUser.value = updatedUser
             }
+        }
+    }
+
+    fun submitPaymentRequest(planName: String, planDays: Int, price: Int, provider: String, senderNumber: String, trxId: String) {
+        val user = _currentUser.value ?: return
+        viewModelScope.launch {
+            val request = PaymentRequestEntity(
+                userId = user.id,
+                userName = user.name,
+                userEmail = user.email,
+                planName = planName,
+                validityDays = planDays,
+                price = price,
+                provider = provider,
+                senderNumber = senderNumber,
+                transactionId = trxId,
+                status = "Pending",
+                timestamp = System.currentTimeMillis()
+            )
+            repository.createPaymentRequest(request)
+            repository.logAnalyticsEvent(user.id, "payment_submit_${planName.replace(" ", "_")}", user.id)
+            refreshCurrentUser()
+        }
+    }
+
+    fun approvePaymentRequest(reqId: Long) {
+        viewModelScope.launch {
+            repository.updatePaymentRequestStatus(reqId, "Approved")
+            refreshCurrentUser()
+        }
+    }
+
+    fun rejectPaymentRequest(reqId: Long) {
+        viewModelScope.launch {
+            repository.updatePaymentRequestStatus(reqId, "Rejected")
+            refreshCurrentUser()
         }
     }
 
@@ -396,6 +442,7 @@ class StreamingViewModel(application: Application) : AndroidViewModel(applicatio
             refreshCurrentUser()
         }
     }
+
 
     fun addGatewayNumberByAdmin(provider: String, number: String, type: String) {
         viewModelScope.launch {

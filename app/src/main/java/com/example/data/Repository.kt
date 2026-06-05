@@ -458,4 +458,56 @@ class Repository(private val db: AppDatabase) {
             fs.collection("gateway_numbers").document(id.toString()).delete()
         }
     }
+
+    // --- Subscription Payment Request operations ---
+    val allPaymentRequestsFlow: Flow<List<PaymentRequestEntity>> = db.paymentRequestDao().getAllPaymentRequestsFlow()
+
+    fun getPaymentRequestsByUserIdFlow(userId: Long): Flow<List<PaymentRequestEntity>> = db.paymentRequestDao().getPaymentRequestsByUserIdFlow(userId)
+
+    suspend fun createPaymentRequest(request: PaymentRequestEntity) = withContext(Dispatchers.IO) {
+        val insertedId = db.paymentRequestDao().insertPaymentRequest(request)
+        FirebaseHelper.firestore?.let { fs ->
+            val data = hashMapOf(
+                "id" to insertedId,
+                "userId" to request.userId,
+                "userName" to request.userName,
+                "userEmail" to request.userEmail,
+                "planName" to request.planName,
+                "validityDays" to request.validityDays,
+                "price" to request.price,
+                "provider" to request.provider,
+                "senderNumber" to request.senderNumber,
+                "transactionId" to request.transactionId,
+                "status" to request.status,
+                "timestamp" to request.timestamp
+            )
+            fs.collection("payment_requests").document(insertedId.toString()).set(data)
+        }
+    }
+
+    suspend fun updatePaymentRequestStatus(id: Long, status: String) = withContext(Dispatchers.IO) {
+        db.paymentRequestDao().updatePaymentRequestStatus(id, status)
+        FirebaseHelper.firestore?.let { fs ->
+            fs.collection("payment_requests").document(id.toString()).update("status", status)
+        }
+        
+        // If approved/marked success, automatically approve/apply subscription to the target user!
+        if (status == "Approved") {
+            val req = db.paymentRequestDao().getPaymentRequestById(id)
+            if (req != null) {
+                val expiryTime = if (req.validityDays == -1) {
+                    Long.MAX_VALUE
+                } else {
+                    System.currentTimeMillis() + (req.validityDays.toLong() * 24L * 60L * 60L * 1000L)
+                }
+                updateUserSubscription(
+                    userId = req.userId,
+                    plan = req.planName,
+                    expiry = expiryTime,
+                    status = "Active"
+                )
+            }
+        }
+    }
 }
+

@@ -76,3 +76,20 @@ data class GatewayNumberEntity(
     val type: String = "Personal", // "Personal", "Agent", "Merchant"
     val isAvailable: Boolean = true
 ) : Serializable
+
+@Entity(tableName = "payment_requests")
+data class PaymentRequestEntity(
+    @PrimaryKey(autoGenerate = true) val id: Long = 0,
+    val userId: Long,
+    val userName: String,
+    val userEmail: String,
+    val planName: String,
+    val validityDays: Int,
+    val price: Int,
+    val provider: String, // "bKash", "Nagad", "Rocket"
+    val senderNumber: String,
+    val transactionId: String,
+    val status: String = "Pending", // "Pending", "Approved", "Rejected"
+    val timestamp: Long = System.currentTimeMillis()
+) : Serializable
+

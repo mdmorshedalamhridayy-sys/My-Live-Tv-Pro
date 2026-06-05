@@ -155,3 +155,25 @@ interface GatewayNumberDao {
     @Query("DELETE FROM gateway_numbers WHERE id = :id")
     suspend fun deleteGatewayNumberById(id: Long)
 }
+
+@Dao
+interface PaymentRequestDao {
+    @Query("SELECT * FROM payment_requests ORDER BY timestamp DESC")
+    fun getAllPaymentRequestsFlow(): Flow<List<PaymentRequestEntity>>
+
+    @Query("SELECT * FROM payment_requests WHERE userId = :userId ORDER BY timestamp DESC")
+    fun getPaymentRequestsByUserIdFlow(userId: Long): Flow<List<PaymentRequestEntity>>
+
+    @Query("SELECT * FROM payment_requests WHERE id = :id")
+    suspend fun getPaymentRequestById(id: Long): PaymentRequestEntity?
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertPaymentRequest(request: PaymentRequestEntity): Long
+
+    @Query("UPDATE payment_requests SET status = :status WHERE id = :id")
+    suspend fun updatePaymentRequestStatus(id: Long, status: String)
+
+    @Delete
+    suspend fun deletePaymentRequest(request: PaymentRequestEntity)
+}
+

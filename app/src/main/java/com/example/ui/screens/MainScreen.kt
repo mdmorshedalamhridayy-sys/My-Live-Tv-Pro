@@ -410,6 +410,80 @@ fun ProfileScreen(viewModel: StreamingViewModel) {
             }
         }
 
+        // User Payment Requests List
+        val myPaymentRequests by viewModel.myPaymentRequests.collectAsState()
+        if (myPaymentRequests.isNotEmpty() && selectedPlanForCheckout == null) {
+            Text(
+                text = "YOUR PAYMENT REQUESTS",
+                fontSize = 14.sp,
+                fontWeight = FontWeight.Black,
+                color = Color.White,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(top = 16.dp, bottom = 12.dp),
+                textAlign = TextAlign.Start
+            )
+
+            Card(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(bottom = 24.dp),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+            ) {
+                Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    myPaymentRequests.forEach { req ->
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .background(Color.Black.copy(alpha = 0.2f), shape = MaterialTheme.shapes.small)
+                                .padding(12.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    text = req.planName,
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 13.sp,
+                                    color = Color.White
+                                )
+                                Text(
+                                    text = "TrxID: ${req.transactionId} (${req.provider})",
+                                    fontSize = 11.sp,
+                                    color = Color.Gray,
+                                    modifier = Modifier.padding(top = 2.dp)
+                                )
+                                Text(
+                                    text = "Amount: ${req.price} Tk | Sender: ${req.senderNumber}",
+                                    fontSize = 11.sp,
+                                    color = Color.Gray
+                                )
+                            }
+                            
+                            val (badgeText, badgeBg, badgeTextColor) = when (req.status) {
+                                "Approved" -> Triple("APPROVED", Color(0xFF00FFCC), Color.Black)
+                                "Rejected" -> Triple("REJECTED", Color.Red, Color.White)
+                                else -> Triple("PENDING", Color(0xFFFFCC00), Color.Black)
+                            }
+                            
+                            Box(
+                                modifier = Modifier
+                                    .background(badgeBg, shape = MaterialTheme.shapes.extraSmall)
+                                    .padding(horizontal = 8.dp, vertical = 4.dp)
+                            ) {
+                                Text(
+                                    text = badgeText,
+                                    fontSize = 9.sp,
+                                    fontWeight = FontWeight.Black,
+                                    color = badgeTextColor
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
         // Subscriptions Section
         if (selectedPlanForCheckout == null) {
             Text(
@@ -744,7 +818,7 @@ fun ProfileScreen(viewModel: StreamingViewModel) {
                                 Text("CANCEL")
                             }
 
-                            Button(
+                             Button(
                                 onClick = {
                                     checkoutErrorMsg = null
                                     if (planToBuy.price > 0 && paymentSenderNumber.length < 11) {
@@ -756,15 +830,27 @@ fun ProfileScreen(viewModel: StreamingViewModel) {
                                         isVerifyingPayment = true
                                         android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({
                                             isVerifyingPayment = false
-                                            viewModel.purchaseSubscription(
-                                                planToBuy.name,
-                                                planToBuy.validityDays,
-                                                planToBuy.price,
-                                                checkoutProvider,
-                                                paymentSenderNumber,
-                                                paymentTrxId
-                                            )
-                                            paymentSuccessStatus = "Subscription for ${planToBuy.name} activated successfully using $checkoutProvider. Thank you!"
+                                            if (planToBuy.price == 0) {
+                                                viewModel.purchaseSubscription(
+                                                    planToBuy.name,
+                                                    planToBuy.validityDays,
+                                                    planToBuy.price,
+                                                    checkoutProvider,
+                                                    paymentSenderNumber,
+                                                    paymentTrxId
+                                                )
+                                                paymentSuccessStatus = "Free Trial Plan activated successfully! Stream HD Live Channels now."
+                                            } else {
+                                                viewModel.submitPaymentRequest(
+                                                    planToBuy.name,
+                                                    planToBuy.validityDays,
+                                                    planToBuy.price,
+                                                    checkoutProvider,
+                                                    paymentSenderNumber,
+                                                    paymentTrxId
+                                                )
+                                                paymentSuccessStatus = "Your payment verification has been submitted successfully! The request is now PENDING. An Admin will check the Transaction ID '${paymentTrxId}' on our $checkoutProvider gateway and activate your stream plan within moments. Thank you!"
+                                            }
                                         }, 2000)
                                     }
                                 },
