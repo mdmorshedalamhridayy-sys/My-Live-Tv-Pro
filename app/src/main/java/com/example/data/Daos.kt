@@ -137,3 +137,21 @@ interface FavoriteDao {
     @Query("DELETE FROM favorites WHERE userId = :userId AND contentId = :contentId AND contentType = :contentType")
     suspend fun removeFavorite(userId: Long, contentId: Long, contentType: String)
 }
+
+@Dao
+interface GatewayNumberDao {
+    @Query("SELECT * FROM gateway_numbers ORDER BY id DESC")
+    fun getAllGatewayNumbersFlow(): Flow<List<GatewayNumberEntity>>
+
+    @Query("SELECT * FROM gateway_numbers ORDER BY id DESC")
+    suspend fun getAllGatewayNumbers(): List<GatewayNumberEntity>
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertGatewayNumber(gatewayNumber: GatewayNumberEntity): Long
+
+    @Delete
+    suspend fun deleteGatewayNumber(gatewayNumber: GatewayNumberEntity)
+
+    @Query("DELETE FROM gateway_numbers WHERE id = :id")
+    suspend fun deleteGatewayNumberById(id: Long)
+}

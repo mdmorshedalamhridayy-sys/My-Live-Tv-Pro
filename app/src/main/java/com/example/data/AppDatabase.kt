@@ -12,7 +12,8 @@ import androidx.room.RoomDatabase
         UserEntity::class,
         NotificationEntity::class,
         AnalyticsEntity::class,
-        FavoriteEntity::class
+        FavoriteEntity::class,
+        GatewayNumberEntity::class
     ],
     version = 1,
     exportSchema = false
@@ -24,6 +25,7 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun notificationDao(): NotificationDao
     abstract fun analyticsDao(): AnalyticsDao
     abstract fun favoriteDao(): FavoriteDao
+    abstract fun gatewayNumberDao(): GatewayNumberDao
 
     companion object {
         @Volatile

@@ -40,9 +40,21 @@ class Repository(private val db: AppDatabase) {
                     category = "Bangladesh TV"
                 ),
                 ChannelEntity(
-                    name = "Somoy TV Live Feed",
-                    streamUrl = "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/TearsOfSteel.mp4",
-                    thumbnail = "https://images.unsplash.com/photo-1504711434969-e33886168f5c?w=500",
+                    name = "Somoy TV Live 24/7",
+                    streamUrl = "https://rtmp.somoynews.tv/live/somoy.m3u8",
+                    thumbnail = "https://images.unsplash.com/photo-1585829365295-ab7cd400c167?w=500",
+                    category = "Live News"
+                ),
+                ChannelEntity(
+                    name = "France 24 HD Network",
+                    streamUrl = "https://static.france24.com/live/F24_EN_LO_HLS/live_tv.m3u8",
+                    thumbnail = "https://images.unsplash.com/photo-1451187580459-43490279c0fa?w=500",
+                    category = "Live News"
+                ),
+                ChannelEntity(
+                    name = "Al Jazeera English",
+                    streamUrl = "https://live-hls-web-aje.getaj.net/AJE/index.m3u8",
+                    thumbnail = "https://images.unsplash.com/photo-1546422904-90eabf3bac0a?w=500",
                     category = "Live News"
                 ),
                 ChannelEntity(
@@ -52,14 +64,20 @@ class Repository(private val db: AppDatabase) {
                     category = "Live Sports"
                 ),
                 ChannelEntity(
-                    name = "BTV National Feed",
-                    streamUrl = "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerJoyrides.mp4",
+                    name = "BTV World HD LIVE",
+                    streamUrl = "http://103.119.100.10:8000/btv_world.m3u8",
                     thumbnail = "https://images.unsplash.com/photo-1595152772835-219674b2a8a6?w=500",
                     category = "Bangladesh TV"
                 ),
                 ChannelEntity(
-                    name = "Willow TV ICC HD",
-                    streamUrl = "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4",
+                    name = "NASA Science Live",
+                    streamUrl = "https://ntv1.nasatv.nasa.gov/hls/ntv1_1080p.m3u8",
+                    thumbnail = "https://images.unsplash.com/photo-1446776811953-b23d57bd21aa?w=500",
+                    category = "Live News"
+                ),
+                ChannelEntity(
+                    name = "Red Bull Live Sports",
+                    streamUrl = "https://rbmn-live.akamaized.net/hls/live/590964/global/master.m3u8",
                     thumbnail = "https://images.unsplash.com/photo-1517649763962-0c623066013b?w=500",
                     category = "Live Sports"
                 )
@@ -160,6 +178,63 @@ class Repository(private val db: AppDatabase) {
                 )
                 fs.collection("users").document(pId.toString()).set(data)
             }
+        }
+
+        // Safety block to ensure outstanding Live channels are imported even if the database is already seeded!
+        val liveChannelsToSeed = listOf(
+            ChannelEntity(
+                name = "Somoy TV Live 24/7",
+                streamUrl = "https://rtmp.somoynews.tv/live/somoy.m3u8",
+                thumbnail = "https://images.unsplash.com/photo-1585829365295-ab7cd400c167?w=500",
+                category = "Live News"
+            ),
+            ChannelEntity(
+                name = "France 24 HD Network",
+                streamUrl = "https://static.france24.com/live/F24_EN_LO_HLS/live_tv.m3u8",
+                thumbnail = "https://images.unsplash.com/photo-1451187580459-43490279c0fa?w=500",
+                category = "Live News"
+            ),
+            ChannelEntity(
+                name = "Al Jazeera English",
+                streamUrl = "https://live-hls-web-aje.getaj.net/AJE/index.m3u8",
+                thumbnail = "https://images.unsplash.com/photo-1546422904-90eabf3bac0a?w=500",
+                category = "Live News"
+            ),
+            ChannelEntity(
+                name = "BTV World HD LIVE",
+                streamUrl = "http://103.119.100.10:8000/btv_world.m3u8",
+                thumbnail = "https://images.unsplash.com/photo-1595152772835-219674b2a8a6?w=500",
+                category = "Bangladesh TV"
+            ),
+            ChannelEntity(
+                name = "NASA Science Live",
+                streamUrl = "https://ntv1.nasatv.nasa.gov/hls/ntv1_1080p.m3u8",
+                thumbnail = "https://images.unsplash.com/photo-1446776811953-b23d57bd21aa?w=500",
+                category = "Live News"
+            ),
+            ChannelEntity(
+                name = "Red Bull Live Sports",
+                streamUrl = "https://rbmn-live.akamaized.net/hls/live/590964/global/master.m3u8",
+                thumbnail = "https://images.unsplash.com/photo-1517649763962-0c623066013b?w=500",
+                category = "Live Sports"
+            )
+        )
+
+        val currentChannels = db.channelDao().getAllChannels()
+        for (newCh in liveChannelsToSeed) {
+            val exists = currentChannels.any { it.name.trim().equals(newCh.name.trim(), ignoreCase = true) }
+            if (!exists) {
+                Log.d(TAG, "Incremental seeding adds missing premium channel: ${newCh.name}")
+                db.channelDao().insertChannel(newCh)
+            }
+        }
+
+        // Seed default payment gateway numbers if table is empty
+        val currentGateways = db.gatewayNumberDao().getAllGatewayNumbers()
+        if (currentGateways.isEmpty()) {
+            db.gatewayNumberDao().insertGatewayNumber(GatewayNumberEntity(provider = "bKash", number = "01789456123", type = "Personal"))
+            db.gatewayNumberDao().insertGatewayNumber(GatewayNumberEntity(provider = "Nagad", number = "01876543210", type = "Personal"))
+            db.gatewayNumberDao().insertGatewayNumber(GatewayNumberEntity(provider = "Rocket", number = "01912345678", type = "Agent"))
         }
     }
 
@@ -336,5 +411,51 @@ class Repository(private val db: AppDatabase) {
             fs.collection("notifications").document(id.toString()).set(data)
         }
         id
+    }
+
+    // --- Subscription Operations ---
+    suspend fun updateUserSubscription(userId: Long, plan: String, expiry: Long, status: String) = withContext(Dispatchers.IO) {
+        val user = db.userDao().getUserById(userId)
+        if (user != null) {
+            val updatedUser = user.copy(
+                subscriptionPlan = plan,
+                subscriptionExpiry = expiry,
+                subscriptionStatus = status
+            )
+            db.userDao().insertUser(updatedUser)
+            FirebaseHelper.firestore?.let { fs ->
+                fs.collection("users").document(userId.toString()).update(
+                    mapOf(
+                        "subscriptionPlan" to plan,
+                        "subscriptionExpiry" to expiry,
+                        "subscriptionStatus" to status
+                    )
+                )
+            }
+        }
+    }
+
+    // --- Dynamic Payment Gateway Number CRUD ---
+    val gatewayNumbersFlow: Flow<List<GatewayNumberEntity>> = db.gatewayNumberDao().getAllGatewayNumbersFlow()
+
+    suspend fun addGatewayNumber(gatewayNumber: GatewayNumberEntity) = withContext(Dispatchers.IO) {
+        val insertedId = db.gatewayNumberDao().insertGatewayNumber(gatewayNumber)
+        FirebaseHelper.firestore?.let { fs ->
+            val data = hashMapOf(
+                "id" to insertedId,
+                "provider" to gatewayNumber.provider,
+                "number" to gatewayNumber.number,
+                "type" to gatewayNumber.type,
+                "isAvailable" to gatewayNumber.isAvailable
+            )
+            fs.collection("gateway_numbers").document(insertedId.toString()).set(data)
+        }
+    }
+
+    suspend fun deleteGatewayNumber(id: Long) = withContext(Dispatchers.IO) {
+        db.gatewayNumberDao().deleteGatewayNumberById(id)
+        FirebaseHelper.firestore?.let { fs ->
+            fs.collection("gateway_numbers").document(id.toString()).delete()
+        }
     }
 }

@@ -34,11 +34,12 @@ import com.example.ui.theme.DeepBackground
 import com.example.ui.theme.PrimaryRed
 import com.example.ui.theme.SurfaceCard
 import com.example.ui.viewmodel.AdminViewModel
+import com.example.ui.viewmodel.StreamingViewModel
 
 @Composable
-fun AdminPanelScreen() {
+fun AdminPanelScreen(streamingViewModel: StreamingViewModel) {
     val adminViewModel: AdminViewModel = viewModel()
-    var activeAdminTab by remember { mutableStateOf("dashboard") } // dashboard, channel_crud, video_crud, users, alerts
+    var activeAdminTab by remember { mutableStateOf("dashboard") } // dashboard, channel_crud, video_crud, users, alerts, updates, gateways
 
     Column(modifier = Modifier.fillMaxSize()) {
         // Tab Navigation Headers
@@ -49,6 +50,8 @@ fun AdminPanelScreen() {
                 "video_crud" -> 2
                 "users" -> 3
                 "alerts" -> 4
+                "updates" -> 5
+                "gateways" -> 6
                 else -> 0
             },
             containerColor = DeepBackground,
@@ -80,6 +83,16 @@ fun AdminPanelScreen() {
                 onClick = { activeAdminTab = "alerts" },
                 text = { Text("Push Alerts", fontSize = 11.sp, fontWeight = FontWeight.Bold) }
             )
+            Tab(
+                selected = (activeAdminTab == "updates"),
+                onClick = { activeAdminTab = "updates" },
+                text = { Text("Update System", fontSize = 11.sp, fontWeight = FontWeight.Bold) }
+            )
+            Tab(
+                selected = (activeAdminTab == "gateways"),
+                onClick = { activeAdminTab = "gateways" },
+                text = { Text("Gateways", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = AccentGold) }
+            )
         }
 
         // Sub Screen Selection
@@ -95,6 +108,8 @@ fun AdminPanelScreen() {
                 "video_crud" -> VideoCrudTab(adminViewModel)
                 "users" -> UsersManagementTab(adminViewModel)
                 "alerts" -> PushAlertsTab(adminViewModel)
+                "updates" -> UpdatesManagementTab(streamingViewModel)
+                "gateways" -> GatewayManagementTab(streamingViewModel)
             }
         }
     }
@@ -741,3 +756,388 @@ fun PushAlertsTab(adminViewModel: AdminViewModel) {
         }
     }
 }
+
+@Composable
+fun UpdatesManagementTab(streamingViewModel: StreamingViewModel) {
+    val currentLocalVer = streamingViewModel.currentAppVersion
+    val latestVer by streamingViewModel.latestAppVersion.collectAsState()
+    val updateMsg by streamingViewModel.updateMessage.collectAsState()
+    val updateUrl by streamingViewModel.updateUrl.collectAsState()
+    val isMandatory by streamingViewModel.isUpdateMandatory.collectAsState()
+
+    var inputVersion by remember { mutableStateOf(latestVer) }
+    var inputMessage by remember { mutableStateOf(updateMsg) }
+    var inputUrl by remember { mutableStateOf(updateUrl) }
+    var setMandatory by remember { mutableStateOf(isMandatory) }
+
+    var successStatusMsg by remember { mutableStateOf<String?>(null) }
+
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(16.dp)
+            .verticalScroll(rememberScrollState())
+    ) {
+        Text(
+            text = "Enterprise App Update & Version Controller",
+            fontSize = 15.sp,
+            color = AccentGold,
+            fontWeight = FontWeight.Bold,
+            modifier = Modifier.padding(bottom = 6.dp)
+        )
+        Text(
+            text = "Publish system update details instantly to all user devices over the air via Firestore sync.",
+            fontSize = 10.sp,
+            color = Color.Gray,
+            modifier = Modifier.padding(bottom = 16.dp)
+        )
+
+        // Status Card
+        Card(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(bottom = 16.dp),
+            colors = CardDefaults.cardColors(containerColor = SurfaceCard)
+        ) {
+            Column(modifier = Modifier.padding(14.dp)) {
+                Text("CURRENT APP ENGINE STATUS", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = PrimaryRed)
+                Spacer(modifier = Modifier.height(8.dp))
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Column {
+                        Text("Local Installed Engine", fontSize = 10.sp, color = Color.Gray)
+                        Text("v$currentLocalVer", fontSize = 14.sp, fontWeight = FontWeight.Bold, color = Color.White)
+                    }
+                    Column {
+                        Text("Published Live version", fontSize = 10.sp, color = Color.Gray)
+                        Text("v$latestVer", fontSize = 14.sp, fontWeight = FontWeight.Bold, color = AccentGold)
+                    }
+                    Column {
+                        Text("Type", fontSize = 10.sp, color = Color.Gray)
+                        Text(
+                            text = if (isMandatory) "FORCE / MANDATORY" else "RECOMMENDED",
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = if (isMandatory) PrimaryRed else Color(0xFF00FFCC)
+                        )
+                    }
+                }
+            }
+        }
+
+        // New Update Settings Form
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            colors = CardDefaults.cardColors(containerColor = SurfaceCard)
+        ) {
+            Column(modifier = Modifier.padding(16.dp)) {
+                Text("CONSTRUCT LIVE SYSTEM UPDATE", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = Color.White)
+                Spacer(modifier = Modifier.height(14.dp))
+
+                OutlinedTextField(
+                    value = inputVersion,
+                    onValueChange = { inputVersion = it },
+                    label = { Text("App version (e.g. 1.1.0)") },
+                    modifier = Modifier.fillMaxWidth().padding(bottom = 12.dp)
+                )
+
+                OutlinedTextField(
+                    value = inputMessage,
+                    onValueChange = { inputMessage = it },
+                    label = { Text("Update logs / description message") },
+                    modifier = Modifier.fillMaxWidth().padding(bottom = 12.dp)
+                )
+
+                OutlinedTextField(
+                    value = inputUrl,
+                    onValueChange = { inputUrl = it },
+                    label = { Text("Update Download URL") },
+                    modifier = Modifier.fillMaxWidth().padding(bottom = 12.dp)
+                )
+
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(bottom = 16.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Checkbox(
+                        checked = setMandatory,
+                        onCheckedChange = { setMandatory = it }
+                    )
+                    Column(modifier = Modifier.padding(start = 8.dp)) {
+                        Text("Force/Mandatory Update", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = Color.White)
+                        Text("User application will block accesses until updated.", fontSize = 9.sp, color = Color.Gray)
+                    }
+                }
+
+                if (successStatusMsg != null) {
+                    Text(
+                        text = successStatusMsg ?: "",
+                        color = Color(0xFF00FFCC),
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Bold,
+                        modifier = Modifier.padding(bottom = 12.dp)
+                    )
+                }
+
+                Button(
+                    onClick = {
+                        if (inputVersion.isNotEmpty()) {
+                            streamingViewModel.publishAppUpdate(inputVersion, inputMessage, inputUrl, setMandatory)
+                            successStatusMsg = "Successfully synchronized update package (v${inputVersion}) to Firebase!"
+                        }
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = PrimaryRed),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Icon(Icons.Default.Send, contentDescription = null, tint = Color.White)
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text("PUBLISH OTA SYSTEM UPDATE", color = Color.White)
+                }
+            }
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun GatewayManagementTab(viewModel: StreamingViewModel) {
+    val gatewayNumbers by viewModel.gatewayNumbers.collectAsState()
+    
+    var providerInput by remember { mutableStateOf("bKash") } // bKash, Nagad, Rocket
+    var numberInput by remember { mutableStateOf("") }
+    var typeInput by remember { mutableStateOf("Personal") } // Personal, Agent, Merchant
+    var errorMsg by remember { mutableStateOf<String?>(null) }
+    var successMsg by remember { mutableStateOf<String?>(null) }
+
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .verticalScroll(rememberScrollState())
+            .padding(16.dp)
+    ) {
+        // Section Title
+        Text(
+            text = "PAYMENT GATEWAY NUMBERS",
+            fontSize = 18.sp,
+            fontWeight = FontWeight.Bold,
+            color = AccentGold,
+            modifier = Modifier.padding(bottom = 16.dp)
+        )
+
+        // Add New Gateway Form Card
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            colors = CardDefaults.cardColors(containerColor = SurfaceCard),
+            elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+        ) {
+            Column(modifier = Modifier.padding(16.dp)) {
+                Text(
+                    text = "Add New Payment Channel Number",
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = Color.White,
+                    modifier = Modifier.padding(bottom = 12.dp)
+                )
+
+                // Provider selection row
+                Text("Select Provider:", fontSize = 11.sp, color = Color.Gray, modifier = Modifier.padding(bottom = 4.dp))
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    listOf("bKash", "Nagad", "Rocket").forEach { provider ->
+                        val isSelected = providerInput == provider
+                        val providerColor = when (provider) {
+                            "bKash" -> Color(0xFFE2136E)
+                            "Nagad" -> Color(0xFFF37021)
+                            "Rocket" -> Color(0xFF8C2D8C)
+                            else -> PrimaryRed
+                        }
+                        Button(
+                            onClick = { providerInput = provider },
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = if (isSelected) providerColor else Color.DarkGray
+                            ),
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            Text(provider, fontSize = 11.sp, fontWeight = FontWeight.Bold, color = Color.White)
+                        }
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(12.dp))
+
+                // Number entry
+                OutlinedTextField(
+                    value = numberInput,
+                    onValueChange = { input ->
+                        if (input.all { it.isDigit() }) {
+                            numberInput = input
+                        }
+                    },
+                    label = { Text("Gateway Number", color = Color.Gray, fontSize = 12.sp) },
+                    placeholder = { Text("e.g. 01712345678", color = Color.White.copy(alpha = 0.3f)) },
+                    singleLine = true,
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedTextColor = Color.White,
+                        unfocusedTextColor = Color.White,
+                        focusedBorderColor = AccentGold,
+                        unfocusedBorderColor = Color.Gray
+                    ),
+                    modifier = Modifier.fillMaxWidth()
+                )
+
+                Spacer(modifier = Modifier.height(12.dp))
+
+                // Account Type selection row
+                Text("Account Type:", fontSize = 11.sp, color = Color.Gray, modifier = Modifier.padding(bottom = 4.dp))
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    listOf("Personal", "Agent", "Merchant").forEach { type ->
+                        val isSelected = typeInput == type
+                        Button(
+                            onClick = { typeInput = type },
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = if (isSelected) AccentGold else Color.DarkGray,
+                                contentColor = if (isSelected) Color.Black else Color.White
+                            ),
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            Text(type, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                        }
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(16.dp))
+
+                if (errorMsg != null) {
+                    Text(errorMsg ?: "", color = Color.Red, fontSize = 12.sp, modifier = Modifier.padding(bottom = 8.dp))
+                }
+                if (successMsg != null) {
+                    Text(successMsg ?: "", color = Color.Green, fontSize = 12.sp, modifier = Modifier.padding(bottom = 8.dp))
+                }
+
+                Button(
+                    onClick = {
+                        errorMsg = null
+                        successMsg = null
+                        if (numberInput.length < 11) {
+                            errorMsg = "Gateway number must be at least 11 digits!"
+                        } else {
+                            viewModel.addGatewayNumberByAdmin(providerInput, numberInput, typeInput)
+                            successMsg = "Successfully added $providerInput gateway number!"
+                            numberInput = ""
+                        }
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = PrimaryRed),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Icon(imageVector = Icons.Default.Add, contentDescription = null, tint = Color.White)
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text("ADD GATEWAY CHANNEL", color = Color.White)
+                }
+            }
+        }
+
+        Spacer(modifier = Modifier.height(24.dp))
+
+        // Existing Gateways Header
+        Text(
+            text = "Active Gateway Channels (${gatewayNumbers.size})",
+            fontSize = 14.sp,
+            fontWeight = FontWeight.Bold,
+            color = Color.White,
+            modifier = Modifier.padding(bottom = 12.dp)
+        )
+
+        if (gatewayNumbers.isEmpty()) {
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                colors = CardDefaults.cardColors(containerColor = SurfaceCard.copy(alpha = 0.5f))
+            ) {
+                Box(
+                    modifier = Modifier.fillMaxWidth().padding(24.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text("No payment gateway numbers added yet.", color = Color.Gray, fontSize = 12.sp)
+                }
+            }
+        } else {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                gatewayNumbers.forEach { gateway ->
+                    val colorAccent = when (gateway.provider) {
+                        "bKash" -> Color(0xFFE2136E)
+                        "Nagad" -> Color(0xFFF37021)
+                        "Rocket" -> Color(0xFF8C2D8C)
+                        else -> AccentGold
+                    }
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = CardDefaults.cardColors(containerColor = SurfaceCard),
+                        border = borderStroke(1.dp, colorAccent.copy(alpha = 0.5f))
+                    ) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(12.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Box(
+                                    modifier = Modifier
+                                        .background(colorAccent, shape = MaterialTheme.shapes.small)
+                                        .padding(horizontal = 8.dp, vertical = 4.dp)
+                                ) {
+                                    Text(
+                                        text = gateway.provider.uppercase(),
+                                        fontSize = 10.sp,
+                                        fontWeight = FontWeight.Black,
+                                        color = Color.White
+                                    )
+                                }
+                                
+                                Spacer(modifier = Modifier.width(12.dp))
+                                
+                                Column {
+                                    Text(
+                                        text = gateway.number,
+                                        fontSize = 15.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = Color.White
+                                    )
+                                    Text(
+                                        text = gateway.type,
+                                        fontSize = 11.sp,
+                                        color = Color.Gray
+                                    )
+                                }
+                            }
+
+                            IconButton(
+                                onClick = { viewModel.removeGatewayNumberByAdmin(gateway.id) }
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Delete,
+                                    contentDescription = "Remove Gateway",
+                                    tint = Color.Red.copy(alpha = 0.8f)
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+// Helper function to create borders dynamically 
+@Composable
+fun borderStroke(width: androidx.compose.ui.unit.Dp, color: Color) = androidx.compose.foundation.BorderStroke(width, color)

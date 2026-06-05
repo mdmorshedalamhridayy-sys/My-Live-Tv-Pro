@@ -35,7 +35,10 @@ data class UserEntity(
     val passwordHash: String,
     val role: String, // "Admin", "Editor", "User"
     val isBanned: Boolean = false,
-    val lastLogin: Long = System.currentTimeMillis()
+    val lastLogin: Long = System.currentTimeMillis(),
+    val subscriptionPlan: String = "None",
+    val subscriptionExpiry: Long = 0L,
+    val subscriptionStatus: String = "Inactive"
 ) : Serializable
 
 @Entity(tableName = "notifications")
@@ -63,4 +66,13 @@ data class FavoriteEntity(
     val userId: Long,
     val contentId: Long,
     val contentType: String // "channel", "video"
+) : Serializable
+
+@Entity(tableName = "gateway_numbers")
+data class GatewayNumberEntity(
+    @PrimaryKey(autoGenerate = true) val id: Long = 0,
+    val provider: String, // "bKash", "Nagad", "Rocket"
+    val number: String,
+    val type: String = "Personal", // "Personal", "Agent", "Merchant"
+    val isAvailable: Boolean = true
 ) : Serializable

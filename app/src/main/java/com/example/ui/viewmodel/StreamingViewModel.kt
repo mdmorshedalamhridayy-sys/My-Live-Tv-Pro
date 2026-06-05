@@ -62,6 +62,9 @@ class StreamingViewModel(application: Application) : AndroidViewModel(applicatio
         // Init programmatic Firebase integration
         FirebaseHelper.initFirebase(application)
         
+        // Listen to app updates from Firestore
+        listenToAppUpdates()
+        
         // Populate standard database items
         viewModelScope.launch {
             try {
@@ -268,5 +271,148 @@ class StreamingViewModel(application: Application) : AndroidViewModel(applicatio
             .build()
             
         notificationManager.notify(System.currentTimeMillis().toInt(), notification)
+    }
+
+    // App Update properties
+    val currentAppVersion = "1.0.0"
+    
+    private val _latestAppVersion = MutableStateFlow("1.0.0")
+    val latestAppVersion: StateFlow<String> = _latestAppVersion.asStateFlow()
+    
+    private val _updateMessage = MutableStateFlow("Sleek performance enhancements and newly loaded direct streaming matching channels.")
+    val updateMessage: StateFlow<String> = _updateMessage.asStateFlow()
+    
+    private val _updateUrl = MutableStateFlow("https://mylivetvapp-update-links.com/download")
+    val updateUrl: StateFlow<String> = _updateUrl.asStateFlow()
+    
+    private val _isUpdateMandatory = MutableStateFlow(false)
+    val isUpdateMandatory: StateFlow<Boolean> = _isUpdateMandatory.asStateFlow()
+    
+    private val _showUpdateDialog = MutableStateFlow(false)
+    val showUpdateDialog: StateFlow<Boolean> = _showUpdateDialog.asStateFlow()
+
+    fun dismissUpdateDialog() {
+        _showUpdateDialog.value = false
+    }
+
+    fun listenToAppUpdates() {
+        FirebaseHelper.firestore?.collection("app_config")?.document("update_info")
+            ?.addSnapshotListener { snapshot, error ->
+                if (error != null) {
+                    Log.e(TAG, "Error listening to app updates in Firestore", error)
+                    return@addSnapshotListener
+                }
+                if (snapshot != null && snapshot.exists()) {
+                    val latestVer = snapshot.getString("latest_version") ?: "1.0.0"
+                    val msg = snapshot.getString("update_message") ?: "A new update is available with sleek features."
+                    val url = snapshot.getString("update_url") ?: "https://mylivetvapp-update-links.com/download"
+                    val isMandatory = snapshot.getBoolean("is_mandatory") ?: false
+                    
+                    _latestAppVersion.value = latestVer
+                    _updateMessage.value = msg
+                    _updateUrl.value = url
+                    _isUpdateMandatory.value = isMandatory
+                    
+                    if (isVersionGreater(latestVer, currentAppVersion)) {
+                        _showUpdateDialog.value = true
+                    }
+                }
+            }
+    }
+
+    fun publishAppUpdate(version: String, message: String, url: String, isMandatory: Boolean) {
+        viewModelScope.launch {
+            FirebaseHelper.firestore?.let { fs ->
+                val data = hashMapOf(
+                    "latest_version" to version.trim(),
+                    "update_message" to message.trim(),
+                    "update_url" to url.trim(),
+                    "is_mandatory" to isMandatory,
+                    "updated_at" to System.currentTimeMillis()
+                )
+                fs.collection("app_config").document("update_info").set(data)
+                    .addOnSuccessListener {
+                        Log.d(TAG, "Successfully published app update config to Firestore!")
+                    }
+                    .addOnFailureListener { e ->
+                        Log.e(TAG, "Failed to publish app update config to Firestore: ${e.message}")
+                    }
+            }
+            
+            _latestAppVersion.value = version
+            _updateMessage.value = message
+            _updateUrl.value = url
+            _isUpdateMandatory.value = isMandatory
+            
+            if (isVersionGreater(version, currentAppVersion)) {
+                _showUpdateDialog.value = true
+            }
+        }
+    }
+
+    private fun isVersionGreater(latest: String, current: String): Boolean {
+        return try {
+            val latestParts = latest.trim().split(".").map { it.toIntOrNull() ?: 0 }
+            val currentParts = current.trim().split(".").map { it.toIntOrNull() ?: 0 }
+            for (i in 0 until minOf(latestParts.size, currentParts.size)) {
+                if (latestParts[i] > currentParts[i]) return true
+                if (latestParts[i] < currentParts[i]) return false
+            }
+            latestParts.size > currentParts.size
+        } catch (e: Exception) {
+            latest != current
+        }
+    }
+
+    // --- Subscription & Payment Gateway flows/actions ---
+    val gatewayNumbers: StateFlow<List<GatewayNumberEntity>> = repository.gatewayNumbersFlow
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    fun refreshCurrentUser() {
+        val user = _currentUser.value ?: return
+        viewModelScope.launch {
+            val updatedUser = database.userDao().getUserById(user.id)
+            if (updatedUser != null) {
+                _currentUser.value = updatedUser
+            }
+        }
+    }
+
+    fun purchaseSubscription(planName: String, planDays: Int, price: Int, provider: String, senderNumber: String, trxId: String) {
+        val user = _currentUser.value ?: return
+        viewModelScope.launch {
+            val expiryTime = if (planDays == -1) {
+                Long.MAX_VALUE
+            } else {
+                System.currentTimeMillis() + (planDays.toLong() * 24L * 60L * 60L * 1000L)
+            }
+            repository.updateUserSubscription(
+                userId = user.id,
+                plan = planName,
+                expiry = expiryTime,
+                status = "Active"
+            )
+            repository.logAnalyticsEvent(user.id, "purchase_subscription_${planName.replace(" ", "_")}_idx", user.id)
+            refreshCurrentUser()
+        }
+    }
+
+    fun addGatewayNumberByAdmin(provider: String, number: String, type: String) {
+        viewModelScope.launch {
+            repository.addGatewayNumber(
+                GatewayNumberEntity(
+                    provider = provider,
+                    number = number,
+                    type = type,
+                    isAvailable = true
+                )
+            )
+        }
+    }
+
+    fun removeGatewayNumberByAdmin(id: Long) {
+        viewModelScope.launch {
+            repository.deleteGatewayNumber(id)
+        }
     }
 }

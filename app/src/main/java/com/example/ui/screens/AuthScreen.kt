@@ -179,44 +179,6 @@ fun AuthScreen(viewModel: StreamingViewModel) {
                     singleLine = true
                 )
 
-                if (!isLoginTab) {
-                    // Role Selector for easy administrative preview testing!
-                    Column(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(vertical = 8.dp)
-                    ) {
-                        Text(
-                            text = "Select Persona / Administrative Role:",
-                            fontSize = 12.sp,
-                            color = AccentGold,
-                            fontWeight = FontWeight.Bold,
-                            modifier = Modifier.padding(bottom = 8.dp)
-                        )
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween
-                        ) {
-                            listOf("User", "Editor", "Admin").forEach { role ->
-                                Row(
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    modifier = Modifier.clickable { selectedRole = role }
-                                ) {
-                                    RadioButton(
-                                        selected = (selectedRole == role),
-                                        onClick = { selectedRole = role }
-                                    )
-                                    Text(
-                                        text = role,
-                                        fontSize = 12.sp,
-                                        modifier = Modifier.padding(start = 4.dp)
-                                    )
-                                }
-                            }
-                        }
-                    }
-                }
-
                 Spacer(modifier = Modifier.height(16.dp))
 
                 Button(
@@ -245,57 +207,7 @@ fun AuthScreen(viewModel: StreamingViewModel) {
 
                 Spacer(modifier = Modifier.height(24.dp))
 
-                // Fast Quick demo shortcuts
-                Text(
-                    text = "Demo Testing Shortcuts (Email -> Password):",
-                    fontSize = 11.sp,
-                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f),
-                    modifier = Modifier.padding(bottom = 10.dp)
-                )
 
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceEvenly
-                ) {
-                    Button(
-                        onClick = {
-                            emailInput = "mdmorshedalamhridayy@gmail.com"
-                            passwordInput = "1b2e4m5r6h7e"
-                            isLoginTab = true
-                        },
-                        colors = ButtonDefaults.buttonColors(containerColor = DeepBackground),
-                        contentPadding = PaddingValues(horizontal = 6.dp, vertical = 2.dp),
-                        modifier = Modifier.height(30.dp)
-                    ) {
-                        Text("Morshed Admin", fontSize = 9.sp, color = AccentGold)
-                    }
-
-                    Button(
-                        onClick = {
-                            emailInput = "admin@mylivetv.com"
-                            passwordInput = "admin123"
-                            isLoginTab = true
-                        },
-                        colors = ButtonDefaults.buttonColors(containerColor = DeepBackground),
-                        contentPadding = PaddingValues(horizontal = 6.dp, vertical = 2.dp),
-                        modifier = Modifier.height(30.dp)
-                    ) {
-                        Text("Admin Demo", fontSize = 9.sp, color = AccentGold.copy(alpha = 0.7f))
-                    }
-
-                    Button(
-                        onClick = {
-                            emailInput = "user@mylivetv.com"
-                            passwordInput = "user123"
-                            isLoginTab = true
-                        },
-                        colors = ButtonDefaults.buttonColors(containerColor = DeepBackground),
-                        contentPadding = PaddingValues(horizontal = 6.dp, vertical = 2.dp),
-                        modifier = Modifier.height(30.dp)
-                    ) {
-                        Text("User Demo", fontSize = 9.sp, color = Color.White)
-                    }
-                }
             }
         }
     }
