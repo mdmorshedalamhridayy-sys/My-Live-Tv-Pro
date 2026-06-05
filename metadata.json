@@ -1,0 +1,6 @@
+{
+  "name": "MyLive Tv",
+  "description": "An Advanced TV Streaming App with Live TV, VOD, and an integrated Web-style Admin Panel.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
